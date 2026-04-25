@@ -1,480 +1,511 @@
 <template>
-  <div class="page">
-    <Navbar />
-    <div class="container" style="padding-top: 2rem; padding-bottom: 3rem;">
-
-      <!-- Header -->
-      <div class="dash-header">
-        <div>
-          <h1>Halo, <span class="name-hl">{{ auth.user?.name }}</span> 👋</h1>
-          <p class="date-text">📅 {{ todayStr }}</p>
-        </div>
-        <!-- Streak badge -->
-        <div class="streak-badge" v-if="!loading">
-          <span class="streak-fire">🔥</span>
-          <div>
-            <div class="streak-num">{{ streak }}</div>
-            <div class="streak-label">Hari Berturut</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── SKELETON LOADING ──────────────────────────────── -->
-      <template v-if="loading">
-        <!-- Stat cards skeleton -->
-        <div class="grid-4" style="margin-bottom:1.5rem;">
-          <div v-for="n in 4" :key="n" class="skeleton-card">
-            <div class="skel skel-num"></div>
-            <div class="skel skel-label"></div>
-          </div>
-        </div>
-        <!-- Action cards skeleton -->
-        <div class="grid-2" style="margin-bottom:2rem;">
-          <div class="card skeleton-action">
-            <div class="skel skel-title"></div>
-            <div class="skel skel-body"></div>
-            <div class="skel skel-body short"></div>
-            <div class="skel skel-btn"></div>
-          </div>
-          <div class="card skeleton-action">
-            <div class="skel skel-title"></div>
-            <div class="skel skel-row" v-for="i in 4" :key="i"></div>
-          </div>
-        </div>
-      </template>
-
-      <!-- ── KONTEN UTAMA ──────────────────────────────────── -->
-      <template v-else>
-        <!-- Stat cards -->
-        <div class="grid-4" style="margin-bottom:1.5rem;">
-          <div class="stat-card blue">
-            <div class="stat-num">{{ totalQ }}</div>
-            <div class="stat-label">Soal Tersedia</div>
-          </div>
-          <div class="stat-card" :class="doneToday ? 'green' : 'orange'">
-            <div class="stat-num">{{ doneToday ? '✅' : '⏳' }}</div>
-            <div class="stat-label">Status Hari Ini</div>
-          </div>
-          <div class="stat-card purple">
-            <div class="stat-num">{{ bestScore }}<span style="font-size:0.7em;opacity:0.7;">/45</span></div>
-            <div class="stat-label">Skor Terbaik</div>
-          </div>
-          <div class="stat-card orange">
-            <div class="stat-num">{{ totalTests }}</div>
-            <div class="stat-label">Total Tes</div>
-          </div>
-        </div>
-
-        <!-- Action cards -->
-        <div class="grid-2" style="margin-bottom:2rem;">
-
-          <!-- ── CARD MULAI TES ──────────────────────────── -->
-          <div class="card action-card">
-            <h2 style="margin-bottom:1rem;">🚀 Simulasi EPT</h2>
-
-            <div v-if="doneToday" class="alert alert-success" style="margin-bottom:1rem;">
-              ✅ Kamu sudah mengerjakan tes hari ini! Soal baru tersedia besok.
-            </div>
-            <div v-else-if="totalQ < 15" class="alert alert-danger" style="margin-bottom:1rem;">
-              ⚠️ Soal belum tersedia ({{ totalQ }} soal). Hubungi admin.
-            </div>
-
-            <template v-else>
-              <p style="color:var(--c-text-muted);margin-bottom:1rem;font-size:0.88rem;">
-                <span class="badge badge-primary">{{ modeLabel }}</span>
-              </p>
-
-              <!-- Pilihan kategori tes -->
-              <div class="category-grid">
-                <button
-                  v-for="cat in categories"
-                  :key="cat.mode"
-                  class="cat-btn"
-                  :class="{
-                    selected: selectedMode === cat.mode,
-                    disabled: !cat.available
-                  }"
-                  :disabled="!cat.available"
-                  @click="selectedMode = cat.mode"
-                >
-                  <span class="cat-icon">{{ cat.icon }}</span>
-                  <span class="cat-name">{{ cat.label }}</span>
-                  <span class="cat-count">{{ cat.count }} soal</span>
-                  <span v-if="!cat.available" class="cat-unavail">Belum tersedia</span>
-                </button>
-              </div>
-
-              <!-- Tombol mulai -->
-              <button
-                class="btn btn-primary btn-full"
-                style="margin-top:1.25rem;"
-                :disabled="!selectedMode"
-                @click="handleStartTest"
-              >
-                ▶️ Mulai {{ selectedModeLabel }}
-              </button>
-
-              <!-- Review soal salah -->
-              <button
-                v-if="wrongCount > 0"
-                class="btn btn-secondary btn-full"
-                style="margin-top:0.75rem;font-size:0.88rem;"
-                @click="goReview"
-              >
-                🔁 Review {{ wrongCount }} Soal yang Pernah Salah
-              </button>
-            </template>
-          </div>
-
-          <!-- ── CARD RIWAYAT ──────────────────────────────── -->
-          <div class="card action-card">
-            <h2 style="margin-bottom:1rem;">📋 Riwayat Terakhir</h2>
-            <div v-if="!scores.length" class="alert alert-info">
-              Belum ada riwayat. Selesaikan simulasi pertamamu!
-            </div>
-            <div v-else class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Tanggal</th><th>Mode</th><th>Skor</th><th>Akurasi</th></tr>
-                </thead>
-                <tbody>
-                  <tr v-for="s in scores.slice(0,6)" :key="s.timestamp">
-                    <td>{{ formatDate(s.date) }}</td>
-                    <td>
-                      <span class="badge badge-primary" style="font-size:0.72rem;">
-                        {{ modeShort(s.testMode) }}
-                      </span>
-                    </td>
-                    <td><strong>{{ s.total }}</strong></td>
-                    <td>{{ s.accuracy }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quick nav -->
-        <h2 style="margin-bottom:1rem;">⚡ Akses Cepat</h2>
-        <div class="grid-3">
-          <router-link to="/analitik" class="quick-nav-card card">
-            <span class="quick-icon">📊</span>
-            <span>Analitik Saya</span>
-          </router-link>
-          <router-link to="/leaderboard" class="quick-nav-card card">
-            <span class="quick-icon">🏆</span>
-            <span>Leaderboard</span>
-          </router-link>
-          <router-link to="/materi" class="quick-nav-card card">
-            <span class="quick-icon">📚</span>
-            <span>Materi Belajar</span>
-          </router-link>
-          <router-link to="/profil" class="quick-nav-card card">
-            <span class="quick-icon">👤</span>
-            <span>Profil Saya</span>
-          </router-link>
-        </div>
-      </template>
-
+  <div class="test-page">
+    <!-- Guard: redirect jika test tidak aktif -->
+    <div v-if="!test.active" class="not-active">
+      <p>Tidak ada tes aktif.</p>
+      <router-link to="/dashboard" class="btn btn-primary">Ke Dashboard</router-link>
     </div>
 
-    <!-- Toast notifikasi -->
-    <transition name="toast-slide">
-      <div v-if="toast.show" class="toast" :class="`toast-${toast.type}`">
-        {{ toast.message }}
+    <template v-else>
+      <!-- Header bar -->
+      <div class="test-topbar">
+        <div class="section-badge">
+          <span>{{ ICONS[test.section] }}</span>
+          <strong class="section-label">{{ LABELS[test.section] }}</strong>
+          <span class="q-counter">Soal {{ test.idx + 1 }}/{{ test.currentList.length }}</span>
+        </div>
+
+        <div class="timer-box" :class="timerClass">
+          ⏱ {{ timerStr }}
+        </div>
       </div>
-    </transition>
+
+      <!-- Progress bar soal dalam seksi saat ini -->
+      <div class="progress-wrap">
+        <div class="progress-bar" style="border-radius:0; height:4px;">
+          <div class="progress-fill" :style="`width:${sectionProgressPct}%;transition:width 0.3s ease;`"></div>
+        </div>
+        <div class="progress-label">
+          <span>{{ ICONS[test.section] }} {{ LABELS[test.section] }}: {{ test.idx + 1 }}/{{ test.currentList.length }}</span>
+          <span>Total: {{ test.totalAnswered }}/{{ test.totalAll }} dijawab</span>
+        </div>
+      </div>
+
+      <div class="test-body">
+        <div class="test-main">
+
+          <!-- Audio (listening): teks TANPA label pembicara -->
+          <div v-if="test.section === 'listening' && cleanScript" class="audio-card card">
+            <div class="audio-label">🎧 Audio Listening</div>
+            <audio controls :key="cleanScript" class="audio-player">
+              <source :src="ttsUrl(cleanScript)" type="audio/mpeg" />
+              Browser tidak mendukung audio.
+            </audio>
+            <!-- Script tanpa "Woman: / Man: / Narrator:" dll -->
+            <p class="audio-script">{{ cleanScript }}</p>
+            <p class="audio-hint">Dengarkan audio sebelum menjawab.</p>
+          </div>
+
+          <!-- Passage (reading) -->
+          <div v-if="test.section === 'reading' && q?.passage" class="passage-wrap">
+            <details open>
+              <summary class="passage-toggle">📖 Baca Passage</summary>
+              <div class="passage-box">{{ q.passage }}</div>
+            </details>
+          </div>
+
+          <!-- Soal dengan animasi transisi antar soal -->
+          <transition name="question-slide" mode="out-in">
+            <div :key="`${test.section}_${test.idx}`" class="question-block">
+              <!-- Question card -->
+              <div class="question-card card">
+                <div class="q-num">Soal {{ test.idx + 1 }}</div>
+                <p class="q-text">{{ q?.question }}</p>
+              </div>
+
+              <!-- Pilihan jawaban -->
+              <div class="options-list">
+                <button
+                  v-for="(opt, i) in q?.options"
+                  :key="i"
+                  class="opt-btn"
+                  :class="{ selected: test.answers[test.answerKey] === i }"
+                  @click="test.setAnswer(i)"
+                >
+                  <span class="opt-letter">{{ 'ABCD'[i] }}</span>
+                  <span class="opt-text">{{ opt }}</span>
+                </button>
+              </div>
+            </div>
+          </transition>
+
+          <!-- Navigasi -->
+          <div class="nav-row">
+            <button class="btn btn-secondary" @click="test.prevQ()" :disabled="isFirstQ">
+              ◀ Kembali
+            </button>
+            <button
+              v-if="!isLastQ"
+              class="btn btn-primary"
+              @click="test.nextQ()"
+              :disabled="test.answers[test.answerKey] === undefined"
+            >
+              Lanjut ▶
+            </button>
+            <button
+              v-else
+              class="btn btn-success"
+              @click="showConfirm = true"
+              :disabled="test.answers[test.answerKey] === undefined"
+            >
+              ✅ Kumpulkan
+            </button>
+          </div>
+        </div>
+
+        <!-- Sidebar desktop: peta soal -->
+        <div class="test-sidebar">
+          <div class="sidebar-card card">
+            <h3 style="margin-bottom:1rem;">🗺️ Peta Soal</h3>
+            <div v-for="sec in test.SECTIONS" :key="sec" class="map-section">
+              <div class="map-sec-header">
+                <span>{{ ICONS[sec] }} {{ LABELS[sec] }}</span>
+                <span class="map-count">{{ answeredInSec(sec) }}/{{ test.questions[sec]?.length || 0 }}</span>
+              </div>
+              <div class="map-grid">
+                <button
+                  v-for="(_, i) in test.questions[sec]"
+                  :key="i"
+                  class="map-dot"
+                  :class="{
+                    active:   sec === test.section && i === test.idx,
+                    answered: test.answers[`${sec}_${i}`] !== undefined
+                  }"
+                  @click="test.jumpTo(sec, i)"
+                >{{ i + 1 }}</button>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="map-total">
+              Total: <strong>{{ test.totalAnswered }}/{{ test.totalAll }}</strong>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" :style="`width:${(test.totalAnswered/test.totalAll||0)*100}%`"></div>
+            </div>
+            <button class="btn btn-danger btn-full" style="margin-top:1rem;font-size:0.85rem;" @click="showConfirm = true">
+              ⚠️ Submit Sekarang
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile: tombol buka peta soal -->
+      <button class="sidebar-toggle-btn btn btn-secondary" @click="showMobileSidebar = true">
+        🗺️ Peta ({{ test.totalAnswered }}/{{ test.totalAll }})
+      </button>
+
+      <!-- Mobile sidebar drawer -->
+      <transition name="slide-up">
+        <div v-if="showMobileSidebar" class="mobile-sidebar-overlay" @click.self="showMobileSidebar = false">
+          <div class="mobile-sidebar-drawer card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+              <h3>🗺️ Peta Soal</h3>
+              <button class="btn btn-secondary" style="padding:0.3rem 0.7rem;" @click="showMobileSidebar = false">✕</button>
+            </div>
+            <div v-for="sec in test.SECTIONS" :key="sec" class="map-section">
+              <div class="map-sec-header">
+                <span>{{ ICONS[sec] }} {{ LABELS[sec] }}</span>
+                <span class="map-count">{{ answeredInSec(sec) }}/{{ test.questions[sec]?.length || 0 }}</span>
+              </div>
+              <div class="map-grid">
+                <button
+                  v-for="(_, i) in test.questions[sec]"
+                  :key="i"
+                  class="map-dot"
+                  :class="{
+                    active:   sec === test.section && i === test.idx,
+                    answered: test.answers[`${sec}_${i}`] !== undefined
+                  }"
+                  @click="test.jumpTo(sec, i); showMobileSidebar = false"
+                >{{ i + 1 }}</button>
+              </div>
+            </div>
+            <button class="btn btn-danger btn-full" style="margin-top:1rem;" @click="showConfirm = true; showMobileSidebar = false">
+              ⚠️ Submit Sekarang
+            </button>
+          </div>
+        </div>
+      </transition>
+
+      <!-- Modal konfirmasi submit -->
+      <div v-if="showConfirm" class="modal-overlay" @click.self="showConfirm = false">
+        <div class="modal-box card">
+          <h2>Kumpulkan Jawaban?</h2>
+          <p style="color:var(--c-text-muted);margin:1rem 0;">
+            Kamu telah menjawab <strong>{{ test.totalAnswered }}/{{ test.totalAll }}</strong> soal.
+            Jawaban yang belum diisi akan dihitung salah.
+          </p>
+          <div style="display:flex;gap:1rem;">
+            <button class="btn btn-secondary" style="flex:1" @click="showConfirm = false">Kembali</button>
+            <button class="btn btn-success" style="flex:1" @click="handleFinish" :disabled="finishing">
+              <span v-if="finishing" class="spinner" style="width:14px;height:14px;border-width:2px;"></span>
+              <span v-else>✅ Ya, Kumpulkan</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import Navbar from '@/components/Navbar.vue'
-import { useAuthStore } from '@/stores/auth'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTestStore } from '@/stores/test'
-import { scoresApi } from '@/services/api'
+import { useRouter } from 'vue-router'
 
-const auth   = useAuthStore()
-const test   = useTestStore()
-const router = useRouter()
+const test              = useTestStore()
+const router            = useRouter()
+const showConfirm       = ref(false)
+const finishing         = ref(false)
+const showMobileSidebar = ref(false)
 
-const loading      = ref(true)
-const scores       = ref([])
-const selectedMode = ref('full')
+const ICONS  = { listening: '🎧', structure: '📐', reading: '📖' }
+const LABELS = { listening: 'Listening', structure: 'Structure', reading: 'Reading' }
 
-// Toast state
-const toast = ref({ show: false, message: '', type: 'success' })
-function showToast(message, type = 'success') {
-  toast.value = { show: true, message, type }
-  setTimeout(() => { toast.value.show = false }, 3000)
-}
+const q = computed(() => test.currentQ)
 
-const todayStr = new Date().toLocaleDateString('id-ID', {
-  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+// Progress soal dalam seksi saat ini
+const sectionProgressPct = computed(() => {
+  const total = test.currentList.length
+  if (!total) return 0
+  return ((test.idx + 1) / total) * 100
 })
 
-const modeLabel = computed(() =>
-  test.soalMode === 'pool' ? '🎲 Soal Acak (Pool)' : '📋 Soal Manual'
-)
-
-// Kategori yang bisa dipilih
-const categories = computed(() => {
-  const qs = test.questions
-  return [
-    {
-      mode:      'full',
-      icon:      '🎯',
-      label:     'Full Test',
-      count:     (qs.listening?.length || 0) + (qs.structure?.length || 0) + (qs.reading?.length || 0),
-      available: (qs.listening?.length || 0) >= 15 && (qs.structure?.length || 0) >= 15 && (qs.reading?.length || 0) >= 15,
-    },
-    {
-      mode:      'listening',
-      icon:      '🎧',
-      label:     'Listening',
-      count:     qs.listening?.length || 0,
-      available: (qs.listening?.length || 0) >= 15,
-    },
-    {
-      mode:      'structure',
-      icon:      '📐',
-      label:     'Structure',
-      count:     qs.structure?.length || 0,
-      available: (qs.structure?.length || 0) >= 15,
-    },
-    {
-      mode:      'reading',
-      icon:      '📖',
-      label:     'Reading',
-      count:     qs.reading?.length || 0,
-      available: (qs.reading?.length || 0) >= 15,
-    },
-  ]
+// Timer: format MM:SS dari test.remaining (state reaktif)
+const timerStr = computed(() => {
+  const m = Math.floor(test.remaining / 60)
+  const s = test.remaining % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+})
+const timerClass = computed(() => {
+  if (test.remaining < 300) return 'danger'
+  if (test.remaining < 900) return 'warning'
+  return 'safe'
 })
 
-const selectedModeLabel = computed(() => {
-  const cat = categories.value.find(c => c.mode === selectedMode.value)
-  return cat?.label || 'Tes'
+// Navigasi batas soal
+const isFirstQ = computed(() => {
+  const secs   = test.SECTIONS
+  const secIdx = secs.indexOf(test.section)
+  return secIdx === 0 && test.idx === 0
+})
+const isLastQ = computed(() => {
+  const secs   = test.SECTIONS
+  const secIdx = secs.indexOf(test.section)
+  return secIdx === secs.length - 1 && test.idx === test.currentList.length - 1
 })
 
-const totalQ = computed(() => test.totalAll)
-
-// Statistik dari riwayat
-const bestScore  = computed(() => scores.value.length ? Math.max(...scores.value.map(s => +s.total)) : 0)
-const totalTests = computed(() => scores.value.length)
-const doneToday  = computed(() => {
-  const today = new Date().toISOString().slice(0, 10)
-  return scores.value.some(s => s.date?.startsWith(today))
+// Hapus label pembicara dari script listening (misal "Woman: Hello" → "Hello")
+// Pola yang dihapus: kata diawali huruf kapital diikuti titik dua
+const cleanScript = computed(() => {
+  const raw = q.value?.script || ''
+  if (!raw) return ''
+  // Hapus semua "Label:" di awal baris atau setelah newline
+  return raw
+    .replace(/^[A-Z][a-zA-Z\s]*:\s*/gm, '')
+    .replace(/\n{2,}/g, '\n')
+    .trim()
 })
 
-// Streak: hitung berapa hari berturut-turut
-const streak = computed(() => {
-  if (!scores.value.length) return 0
-  const dates = [...new Set(scores.value.map(s => s.date?.slice(0, 10)).filter(Boolean))].sort().reverse()
-  let count = 0
-  let cur   = new Date()
-  cur.setHours(0, 0, 0, 0)
-  for (const d of dates) {
-    const diff = Math.round((cur - new Date(d)) / 86400000)
-    if (diff === count) count++
-    else break
-  }
-  return count
-})
-
-// Soal salah yang pernah tersimpan
-const wrongCount = computed(() => test.getWrongQuestions(auth.user?.username).length)
-
-function formatDate(d) {
-  if (!d) return '-'
-  return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+function answeredInSec(sec) {
+  return (test.questions[sec] || []).filter((_, i) => test.answers[`${sec}_${i}`] !== undefined).length
 }
 
-function modeShort(mode) {
-  const map = { full: 'Full', listening: 'Listen', structure: 'Struct', reading: 'Read' }
-  return map[mode] || 'Full'
+function ttsUrl(text) {
+  return `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=en&client=tw-ob`
 }
 
-function handleStartTest() {
-  test.setTestMode(selectedMode.value)
-  test.startTest()
-  showToast('Tes dimulai! Semangat! 💪')
-}
-
-function goReview() {
-  router.push('/review')
-}
-
-onMounted(async () => {
+async function handleFinish() {
+  finishing.value = true
   try {
-    await test.loadQuestions()
-    const res = await scoresApi.getUser(auth.user.username)
-    scores.value = res.data.scores || []
-
-    // Otomatis pilih mode yang tersedia
-    const hasAll = categories.value[0]?.available
-    if (!hasAll) {
-      // Pilih seksi pertama yang tersedia
-      const avail = categories.value.find(c => c.mode !== 'full' && c.available)
-      if (avail) selectedMode.value = avail.mode
-      else selectedMode.value = null
-    }
-
-    // Toast sambutan jika belum tes hari ini
-    if (!doneToday.value && scores.value.length > 0) {
-      showToast('Selamat datang kembali! Jangan lupa tes hari ini 📝', 'info')
-    }
-  } catch (e) {
-    console.error(e)
-    showToast('Gagal memuat data. Coba refresh.', 'error')
+    await test.finishTest()
   } finally {
-    loading.value = false
+    finishing.value = false
   }
+}
+
+// Timer: gunakan tickTimer() dari store agar remaining reaktif
+let ticker
+onMounted(() => {
+  if (!test.active) test.restoreState()
+
+  // FIX: ticker memanggil store.tickTimer() yang mengubah state reaktif remaining
+  ticker = setInterval(() => {
+    if (!test.active) {
+      clearInterval(ticker)
+      return
+    }
+    test.tickTimer()
+    if (test.remaining <= 0) {
+      clearInterval(ticker)
+      handleFinish()
+    }
+  }, 1000)
 })
+onUnmounted(() => clearInterval(ticker))
 </script>
 
 <style scoped>
-/* ── Header ─────────────────────────────────────────────────── */
-.dash-header {
+/* ── Layout utama ──────────────────────────────────────────── */
+.test-page { min-height: 100vh; display: flex; flex-direction: column; }
+.not-active { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 1rem; }
+
+/* ── Topbar ────────────────────────────────────────────────── */
+.test-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.75rem;
-  flex-wrap: wrap;
-  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
-.name-hl { color: var(--c-primary-light); }
-.date-text { color: var(--c-text-muted); font-size: 0.9rem; margin-top: 0.25rem; }
+.section-badge { display: flex; align-items: center; gap: 0.6rem; font-size: 1rem; }
+.section-label { display: inline; }
+.q-counter { color: var(--c-text-muted); font-size: 0.85rem; }
 
-/* ── Streak badge ───────────────────────────────────────────── */
-.streak-badge {
+.timer-box {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.3rem 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 2px solid;
+}
+.timer-box.safe    { border-color: var(--c-success); color: var(--c-success); }
+.timer-box.warning { border-color: var(--c-warning); color: var(--c-warning); }
+.timer-box.danger  { border-color: var(--c-danger);  color: var(--c-danger); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+/* ── Progress bar ──────────────────────────────────────────── */
+.progress-wrap { background: var(--c-surface); }
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.35rem 1.25rem;
+  font-size: 0.78rem;
+  color: var(--c-text-muted);
+}
+
+/* ── Body grid ─────────────────────────────────────────────── */
+.test-body {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Audio card ────────────────────────────────────────────── */
+.audio-card { margin-bottom: 1rem; }
+.audio-label { font-weight: 600; margin-bottom: 0.75rem; }
+.audio-player { width: 100%; margin-bottom: 0.5rem; }
+.audio-script {
+  font-size: 0.88rem;
+  color: var(--c-text-muted);
+  line-height: 1.7;
+  margin-bottom: 0.5rem;
+  white-space: pre-line;
+}
+.audio-hint { font-size: 0.8rem; color: var(--c-text-dim); }
+
+/* ── Passage ───────────────────────────────────────────────── */
+.passage-wrap { margin-bottom: 1rem; }
+.passage-toggle { cursor: pointer; font-weight: 600; color: var(--c-primary-light); list-style: none; }
+.passage-box {
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  margin-top: 0.75rem;
+  white-space: pre-wrap;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+/* ── Question & options ────────────────────────────────────── */
+.question-card { margin-bottom: 1.25rem; }
+.q-num { font-size: 0.8rem; color: var(--c-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+.q-text { font-size: 1.05rem; line-height: 1.75; }
+
+.options-list { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.5rem; }
+.opt-btn {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
-  border-radius: var(--radius-md);
-  padding: 0.75rem 1.25rem;
-}
-.streak-fire { font-size: 2rem; }
-.streak-num  { font-family: var(--font-display); font-size: 1.6rem; font-weight: 700; color: var(--c-warning); line-height: 1; }
-.streak-label{ font-size: 0.75rem; color: var(--c-text-muted); }
-
-/* ── Category grid ──────────────────────────────────────────── */
-.category-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.65rem;
-}
-.cat-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-  padding: 0.85rem 0.5rem;
-  background: var(--c-surface2);
-  border: 2px solid var(--c-border);
   border-radius: var(--radius-md);
   cursor: pointer;
+  text-align: left;
   color: var(--c-text);
+  font-size: 0.95rem;
+  transition: all 0.15s;
   font-family: var(--font-body);
-  transition: all 0.18s;
-  position: relative;
+  width: 100%;
 }
-.cat-btn:hover:not(.disabled) { border-color: var(--c-primary); background: rgba(108,99,255,0.07); }
-.cat-btn.selected { border-color: var(--c-primary); background: rgba(108,99,255,0.13); }
-.cat-btn.disabled { opacity: 0.45; cursor: not-allowed; }
-.cat-icon  { font-size: 1.5rem; }
-.cat-name  { font-weight: 700; font-size: 0.9rem; }
-.cat-count { font-size: 0.75rem; color: var(--c-text-muted); }
-.cat-unavail {
-  position: absolute;
-  top: 4px; right: 6px;
-  font-size: 0.62rem;
-  color: var(--c-danger);
-}
-
-/* ── Action card ────────────────────────────────────────────── */
-.action-card { height: 100%; }
-
-/* ── Quick nav ──────────────────────────────────────────────── */
-.quick-nav-card {
+.opt-btn:hover { border-color: var(--c-primary); background: rgba(108,99,255,0.05); }
+.opt-btn.selected { border-color: var(--c-primary); background: rgba(108,99,255,0.12); color: var(--c-primary-light); }
+.opt-letter {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--c-surface2);
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  text-decoration: none;
-  color: var(--c-text);
-  font-weight: 600;
-  transition: all 0.2s;
-}
-.quick-nav-card:hover { border-color: var(--c-primary); color: var(--c-primary-light); transform: translateY(-2px); }
-.quick-icon { font-size: 1.5rem; }
-
-/* ── Skeleton loading ───────────────────────────────────────── */
-@keyframes shimmer {
-  0%   { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
-}
-.skel {
-  border-radius: 6px;
-  background: linear-gradient(90deg, var(--c-surface2) 25%, var(--c-border) 50%, var(--c-surface2) 75%);
-  background-size: 800px 100%;
-  animation: shimmer 1.4s infinite linear;
-}
-.skeleton-card {
-  background: var(--c-surface);
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  flex-shrink: 0;
   border: 1px solid var(--c-border);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
-.skel-num   { height: 40px; width: 60%; }
-.skel-label { height: 14px; width: 80%; }
-.skel-title { height: 22px; width: 55%; margin-bottom: 0.5rem; }
-.skel-body  { height: 14px; width: 90%; }
-.skel-body.short { width: 60%; }
-.skel-btn   { height: 40px; width: 100%; margin-top: 0.5rem; }
-.skel-row   { height: 14px; width: 100%; margin-top: 0.5rem; }
-.skeleton-action { display: flex; flex-direction: column; gap: 0.6rem; }
+.opt-btn.selected .opt-letter { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
 
-/* ── Toast ──────────────────────────────────────────────────── */
-.toast {
+.nav-row { display: flex; justify-content: space-between; gap: 1rem; }
+
+/* ── Animasi transisi soal ─────────────────────────────────── */
+.question-slide-enter-active { transition: all 0.25s ease; }
+.question-slide-leave-active { transition: all 0.18s ease; }
+.question-slide-enter-from { opacity: 0; transform: translateX(20px); }
+.question-slide-leave-to  { opacity: 0; transform: translateX(-20px); }
+
+/* ── Sidebar desktop ───────────────────────────────────────── */
+.sidebar-card { position: sticky; top: 90px; }
+.map-section { margin-bottom: 1.25rem; }
+.map-sec-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.85rem; font-weight: 600; }
+.map-count { color: var(--c-text-muted); font-weight: 400; }
+.map-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.map-dot {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-dim);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-body);
+}
+.map-dot.answered { background: rgba(16,212,142,0.15); border-color: var(--c-success); color: var(--c-success); }
+.map-dot.active { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+.map-total { font-size: 0.85rem; color: var(--c-text-muted); margin-bottom: 0.5rem; }
+.divider { height: 1px; background: var(--c-border); margin: 0.75rem 0; }
+
+/* ── Mobile sidebar toggle ─────────────────────────────────── */
+.sidebar-toggle-btn {
+  display: none; /* hanya tampil di mobile */
   position: fixed;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  font-size: 0.9rem;
-  z-index: 999;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 80;
   box-shadow: var(--shadow-card);
-  white-space: nowrap;
 }
-.toast-success { background: var(--c-success);   color: #fff; }
-.toast-error   { background: var(--c-danger);    color: #fff; }
-.toast-info    { background: var(--c-info);      color: #fff; }
-.toast-warning { background: var(--c-warning);   color: #000; }
-
-.toast-slide-enter-active { transition: all 0.3s ease; }
-.toast-slide-leave-active { transition: all 0.3s ease; }
-.toast-slide-enter-from   { opacity: 0; transform: translateX(-50%) translateY(20px); }
-.toast-slide-leave-to     { opacity: 0; transform: translateX(-50%) translateY(20px); }
-
-/* ── Responsive ─────────────────────────────────────────────── */
-@media (max-width: 640px) {
-  .streak-badge { padding: 0.6rem 1rem; }
-  .category-grid { grid-template-columns: 1fr 1fr; }
-  .cat-btn { padding: 0.7rem 0.4rem; }
-  .cat-icon { font-size: 1.25rem; }
-  .cat-name { font-size: 0.82rem; }
-  .dash-header { flex-direction: column; align-items: flex-start; }
+.mobile-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+}
+.mobile-sidebar-drawer {
+  width: 100%;
+  max-height: 75vh;
+  overflow-y: auto;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 1.25rem;
 }
 
-@media (max-width: 400px) {
-  .category-grid { grid-template-columns: 1fr; }
+/* Animasi slide-up untuk mobile drawer */
+.slide-up-enter-active, .slide-up-leave-active { transition: transform 0.3s ease; }
+.slide-up-enter-from, .slide-up-leave-to { transform: translateY(100%); }
+
+/* ── Modal ─────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.modal-box { max-width: 400px; width: 90%; padding: 2rem; }
+
+/* ── Responsive mobile ─────────────────────────────────────── */
+@media (max-width: 900px) {
+  .test-body {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .test-sidebar { display: none; } /* pakai mobile drawer */
+  .sidebar-toggle-btn { display: inline-flex; }
+  .section-label { display: none; }
+  .q-text { font-size: 0.97rem; }
+  .opt-btn { padding: 0.75rem 0.9rem; font-size: 0.9rem; }
+  .timer-box { font-size: 0.95rem; padding: 0.25rem 0.65rem; }
+}
+
+@media (max-width: 480px) {
+  .test-topbar { padding: 0.6rem 0.85rem; }
+  .q-text { font-size: 0.93rem; }
+  .opt-btn { gap: 0.75rem; }
 }
 </style>
