@@ -11,5 +11,13 @@ import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
-onMounted(() => auth.init())
+
+onMounted(() => {
+  // Inisialisasi auth dari localStorage
+  auth.init()
+
+  // Terapkan tema yang tersimpan (dark/light mode)
+  const savedTheme = localStorage.getItem('ept_theme') || 'dark'
+  document.documentElement.setAttribute('data-theme', savedTheme)
+})
 </script>
