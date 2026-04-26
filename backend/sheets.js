@@ -69,4 +69,4 @@ const SHEETS = {
   DAILY_DRAW:  'DailyDraw'
 }
 
-module.exports = { getRange, appendRow, clearRange, updateRow, SHEETS, SPREADSHEET_ID }
+module.exports = { getRange, appendRow, clearRange, updateRow, SHEETS, SPREADSHEET_ID, getSheetsClient }
