@@ -71,7 +71,7 @@ router.get('/today', async (req, res) => {
 
     // Cek DailyDraw — format: satu baris per soal (date|pool_id|no|section)
     const drawRows   = await getRange(`${SHEETS.DAILY_DRAW}!A2:D`)
-    const todayDraws = drawRows.filter(r => r[0] === today)
+    const todayDraws = drawRows.filter(r => r[0] && String(r[0]).slice(0, 10) === today)
 
     if (todayDraws.length > 0) {
       // Kumpulkan semua pool_id yang dipilih hari ini
@@ -102,7 +102,7 @@ router.get('/today', async (req, res) => {
 
     // Fallback: soal manual dari sheet Questions
     const rows    = await getRange(`${SHEETS.QUESTIONS}!A2:N`)
-    const todayQs = rows.filter(r => r[0] === today).map(parseQuestion)
+    const todayQs = rows.filter(r => r[0] && String(r[0]).slice(0, 10) === today).map(parseQuestion)
     return res.json({ questions: groupBySection(todayQs), mode: 'manual' })
   } catch (e) {
     console.error('Get today questions error:', e)
@@ -115,7 +115,7 @@ router.get('/', async (req, res) => {
   try {
     const { date } = req.query
     const rows     = await getRange(`${SHEETS.QUESTIONS}!A2:N`)
-    const filtered = date ? rows.filter(r => r[0] === date) : rows
+    const filtered = date ? rows.filter(r => r[0] && String(r[0]).slice(0, 10) === date) : rows
     return res.json({ questions: groupBySection(filtered.map(parseQuestion)) })
   } catch (e) {
     res.status(500).json({ message: 'Gagal mengambil soal.' })
