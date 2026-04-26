@@ -1,11 +1,11 @@
 /**
  * backend/routes/others.js
  *
- * Perbaikan dari sheet aktual:
+ * Kolom sheet aktual:
  *
  * AnswerLog kolom aktual:
  * A: username | B: date | C: question_date | D: section | E: q_no |
- * F: is_correct | G: user_answer | H: correct_answer | I: timestamp
+ * F: is_correct | G: user_answer | H: correct_answer | I: time_spent | J: timestamp
  *
  * DailyDraw kolom aktual:
  * A: date | B: pool_id | C: no | D: section
@@ -14,10 +14,10 @@
  * QuestionPool kolom aktual:
  * A: pool_id | B: type | C: question | D: option_a | E: option_b |
  * F: option_c | G: option_d | H: correct | I: script | J: passage | K: difficulty
- * (kolom L: answer_key dan M: explanation akan ditambahkan nanti)
+ * L: answer_key | M: explanation
  */
 const express = require('express')
-const { getRange, appendRow, clearRange, SHEETS } = require('../sheets')
+const { getRange, appendRow, clearRange, getSheetsClient, SHEETS, SPREADSHEET_ID } = require('../sheets')
 
 // ── Answer Log ────────────────────────────────────────────────────────────────
 const answersRouter = express.Router()
@@ -42,7 +42,7 @@ answersRouter.post('/', async (req, res) => {
         const isCorrect  = userAns === q.correct ? 1 : 0
 
         // Simpan sesuai urutan kolom aktual sheet AnswerLog:
-        // username | date | question_date | section | q_no | is_correct | user_answer | correct_answer | timestamp
+        // username | date | question_date | section | q_no | is_correct | user_answer | correct_answer | time_spent | timestamp
         await appendRow(SHEETS.ANSWER_LOG, [
           username,
           date,
@@ -52,6 +52,7 @@ answersRouter.post('/', async (req, res) => {
           isCorrect,
           userAns !== undefined ? userAns : '',
           q.correct,
+          0,          // time_spent (belum diimplementasi, default 0)
           timestamp,
         ])
       }
@@ -67,7 +68,7 @@ answersRouter.post('/', async (req, res) => {
 // GET /api/answers/all
 answersRouter.get('/all', async (req, res) => {
   try {
-    const rows = await getRange(`${SHEETS.ANSWER_LOG}!A2:I`)
+    const rows = await getRange(`${SHEETS.ANSWER_LOG}!A2:J`)
     const log  = rows.map(parseAnswerLog)
     return res.json({ log })
   } catch (e) {
@@ -79,7 +80,7 @@ answersRouter.get('/all', async (req, res) => {
 answersRouter.get('/user', async (req, res) => {
   try {
     const { username } = req.query
-    const rows = await getRange(`${SHEETS.ANSWER_LOG}!A2:I`)
+    const rows = await getRange(`${SHEETS.ANSWER_LOG}!A2:J`)
     const log  = rows.filter(r => r[0] === username).map(parseAnswerLog)
     return res.json({ log })
   } catch (e) {
@@ -97,7 +98,8 @@ function parseAnswerLog(r) {
     is_correct:    parseInt(r[5]) === 1,
     user_answer:   r[6] !== '' && r[6] !== undefined ? parseInt(r[6]) : null,
     correct_answer:r[7] !== '' && r[7] !== undefined ? parseInt(r[7]) : null,
-    timestamp:     r[8] || '',
+    time_spent:    parseInt(r[8]) || 0,
+    timestamp:     r[9] || '',
   }
 }
 
@@ -305,7 +307,6 @@ poolRouter.post('/draw', async (req, res) => {
 
 // ── Helper internal: tulis ulang sheet ───────────────────────────────────────
 async function _rewriteSheet(sheetName, range, rows) {
-  const { getSheetsClient, SPREADSHEET_ID } = require('../sheets')
   await clearRange(`${sheetName}!${range}`)
   if (!rows.length) return
   const sheets = getSheetsClient()
